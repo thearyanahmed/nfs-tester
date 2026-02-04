@@ -14,7 +14,7 @@ RUN addgroup -g 678 nfstest && \
 
 COPY --from=builder /app/nfs-tester /usr/local/bin/nfs-tester
 
-USER 1234:678
+USER 4321:678
 
 ENV NFS_PATH=/mnt/nfs
 ENV LISTEN_ADDR=:8080
