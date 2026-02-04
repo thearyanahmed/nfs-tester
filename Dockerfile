@@ -9,12 +9,12 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates
 
 # create user with uid=1234 (different), gid=678 (same as app-998)
-RUN addgroup -g 678 nfstest && \
-    adduser -D -u 4321 -G nfstest -s /bin/sh nfstest
+RUN addgroup -g 6662 nfstest && \
+    adduser -D -u 1234 -G nfstest -s /bin/sh nfstest
 
 COPY --from=builder /app/nfs-tester /usr/local/bin/nfs-tester
 
-USER 4321:678
+USER 1234:6662
 
 ENV NFS_PATH=/mnt/nfs
 ENV LISTEN_ADDR=:8080
