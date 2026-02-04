@@ -1,0 +1,13 @@
+name: nfs-tester
+services:
+  - name: app
+    dockerfile_path: Dockerfile
+    github:
+      repo: # TODO: push to a repo or use local source
+      branch: main
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: NFS_PATH
+        value: /mnt/nfs
