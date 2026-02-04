@@ -10,7 +10,7 @@ RUN apk add --no-cache ca-certificates
 
 # create user with uid=1234 (different), gid=678 (same as app-998)
 RUN addgroup -g 678 nfstest && \
-    adduser -D -u 1234 -G nfstest -s /bin/sh nfstest
+    adduser -D -u 4321 -G nfstest -s /bin/sh nfstest
 
 COPY --from=builder /app/nfs-tester /usr/local/bin/nfs-tester
 
