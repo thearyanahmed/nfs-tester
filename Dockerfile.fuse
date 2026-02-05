@@ -1,0 +1,45 @@
+FROM golang:1.23-alpine AS go-builder
+
+WORKDIR /app
+COPY main.go .
+RUN go build -o nfs-tester main.go
+
+FROM ubuntu:22.04 AS fuse-builder
+
+RUN apt-get update && apt-get install -y \
+    git build-essential autoconf automake libtool pkg-config \
+    libnfs-dev libfuse-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /build
+RUN git clone https://github.com/sahlberg/fuse-nfs.git && \
+    cd fuse-nfs && \
+    ./setup.sh && \
+    ./configure && \
+    make
+
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y \
+    fuse libfuse2 libnfs13 \
+    ca-certificates curl netcat-openbsd \
+    && rm -rf /var/lib/apt/lists/*
+
+# create test user
+RUN groupadd -g 678 nfstest && \
+    useradd -u 998 -g 678 -m -s /bin/bash nfstest
+
+COPY --from=go-builder /app/nfs-tester /usr/local/bin/nfs-tester
+COPY --from=fuse-builder /build/fuse-nfs/fuse/fuse-nfs /usr/local/bin/fuse-nfs
+
+# mount script
+COPY mount-fuse.sh /usr/local/bin/mount-fuse.sh
+RUN chmod +x /usr/local/bin/mount-fuse.sh
+
+ENV NFS_PATH=/mnt/nfs
+ENV LISTEN_ADDR=:8080
+
+EXPOSE 8080
+
+# run as root to allow fuse mount, then drop privileges for app
+CMD ["/bin/bash", "-c", "/usr/local/bin/mount-fuse.sh && exec su nfstest -c 'nfs-tester'"]
