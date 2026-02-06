@@ -205,7 +205,12 @@ func handleExec(w http.ResponseWriter, r *http.Request) {
 	cmd := r.URL.Query().Get("cmd")
 	cwd := r.URL.Query().Get("cwd")
 	if cwd == "" {
-		cwd = nfsPath
+		// fall back to / if nfs mount doesn't exist
+		if _, err := os.Stat(nfsPath); err == nil {
+			cwd = nfsPath
+		} else {
+			cwd = "/"
+		}
 	}
 
 	if cmd == "" {
