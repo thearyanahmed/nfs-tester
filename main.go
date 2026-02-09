@@ -86,6 +86,8 @@ func main() {
 
 	sessions = NewSessionStore(sessionPath)
 	os.MkdirAll(imagesPath, 0755)
+	// gvisor gofer ignores mode on mkdir over NFS, force correct perms
+	os.Chmod(imagesPath, 0755)
 
 	u, _ := user.Current()
 	log.Printf("Running as: %s (uid=%s, gid=%s)", u.Username, u.Uid, u.Gid)

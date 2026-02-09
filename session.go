@@ -30,6 +30,8 @@ type SessionStore struct {
 
 func NewSessionStore(dir string) *SessionStore {
 	os.MkdirAll(dir, 0755)
+	// gvisor gofer ignores mode on mkdir over NFS, force correct perms
+	os.Chmod(dir, 0755)
 	return &SessionStore{dir: dir}
 }
 
