@@ -9,17 +9,18 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 )
 
 type TestResult struct {
-	Name    string `json:"name"`
-	Pass    bool   `json:"pass"`
-	Error   string `json:"error,omitempty"`
-	Details string `json:"details,omitempty"`
+	Name     string `json:"name"`
+	Pass     bool   `json:"pass"`
+	Before   string `json:"before,omitempty"`
+	After    string `json:"after,omitempty"`
+	Error    string `json:"error,omitempty"`
+	Details  string `json:"details,omitempty"`
+	Duration string `json:"duration"`
 }
 
 type MatrixResult struct {
@@ -138,7 +139,6 @@ func handleInfo(w http.ResponseWriter, r *http.Request) {
 func handleMatrix(w http.ResponseWriter, r *http.Request) {
 	u, _ := user.Current()
 
-	// get mount info
 	mountInfo := ""
 	if out, err := exec.Command("mount").Output(); err == nil {
 		for _, line := range strings.Split(string(out), "\n") {
@@ -149,6 +149,9 @@ func handleMatrix(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	runID := fmt.Sprintf("%d", time.Now().UnixNano())
+	isolated := RunIsolatedSuite(nfsPath, runID)
+
 	result := MatrixResult{
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 		User:      u.Username,
@@ -156,49 +159,9 @@ func handleMatrix(w http.ResponseWriter, r *http.Request) {
 		GID:       u.Gid,
 		MountPath: nfsPath,
 		MountInfo: mountInfo,
-		Tests:     []TestResult{},
-		Summary:   map[string]int{"pass": 0, "fail": 0},
+		Tests:     isolated.Tests,
+		Summary:   map[string]int{"pass": isolated.Summary.Pass, "fail": isolated.Summary.Fail},
 	}
-
-	testDir := filepath.Join(nfsPath, fmt.Sprintf("test-matrix-%d", time.Now().Unix()))
-
-	// run all tests
-	tests := []struct {
-		name string
-		fn   func(string) (string, error)
-	}{
-		{"create_file", testCreateFile},
-		{"read_file", testReadFile},
-		{"append_file", testAppendFile},
-		{"overwrite_file", testOverwriteFile},
-		{"mkdir", testMkdir},
-		{"create_in_subdir", testCreateInSubdir},
-		{"chmod", testChmod},
-		{"rename", testRename},
-		{"copy", testCopy},
-		{"delete_file", testDeleteFile},
-		{"rmdir", testRmdir},
-		{"large_file_1mb", testLargeFile},
-		{"concurrent_writes", testConcurrentWrites},
-	}
-
-	for _, t := range tests {
-		tr := TestResult{Name: t.name}
-		details, err := t.fn(testDir)
-		if err != nil {
-			tr.Pass = false
-			tr.Error = err.Error()
-			result.Summary["fail"]++
-		} else {
-			tr.Pass = true
-			result.Summary["pass"]++
-		}
-		tr.Details = details
-		result.Tests = append(result.Tests, tr)
-	}
-
-	// cleanup
-	os.RemoveAll(testDir)
 
 	writeJSON(w, result)
 }
@@ -296,168 +259,6 @@ func handleTestSuite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, result)
-}
-
-// test functions
-
-func testCreateFile(testDir string) (string, error) {
-	if err := os.MkdirAll(testDir, 0755); err != nil {
-		return "", err
-	}
-	path := filepath.Join(testDir, "test.txt")
-	if err := os.WriteFile(path, []byte("hello world"), 0644); err != nil {
-		return "", err
-	}
-	info, _ := os.Stat(path)
-	return fmt.Sprintf("created %s, size=%d", path, info.Size()), nil
-}
-
-func testReadFile(testDir string) (string, error) {
-	path := filepath.Join(testDir, "test.txt")
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("read %d bytes: %s", len(data), string(data)), nil
-}
-
-func testAppendFile(testDir string) (string, error) {
-	path := filepath.Join(testDir, "test.txt")
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	n, err := f.WriteString("\nappended line")
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("appended %d bytes", n), nil
-}
-
-func testOverwriteFile(testDir string) (string, error) {
-	path := filepath.Join(testDir, "test.txt")
-	if err := os.WriteFile(path, []byte("overwritten content"), 0644); err != nil {
-		return "", err
-	}
-	return "file overwritten", nil
-}
-
-func testMkdir(testDir string) (string, error) {
-	path := filepath.Join(testDir, "subdir")
-	if err := os.Mkdir(path, 0755); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("created directory %s", path), nil
-}
-
-func testCreateInSubdir(testDir string) (string, error) {
-	path := filepath.Join(testDir, "subdir", "subfile.txt")
-	if err := os.WriteFile(path, []byte("subdir content"), 0644); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("created %s", path), nil
-}
-
-func testChmod(testDir string) (string, error) {
-	path := filepath.Join(testDir, "subdir", "subfile.txt")
-	if err := os.Chmod(path, 0755); err != nil {
-		return "", err
-	}
-	info, _ := os.Stat(path)
-	return fmt.Sprintf("chmod to %s", info.Mode()), nil
-}
-
-func testRename(testDir string) (string, error) {
-	oldPath := filepath.Join(testDir, "subdir", "subfile.txt")
-	newPath := filepath.Join(testDir, "subdir", "renamed.txt")
-	if err := os.Rename(oldPath, newPath); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("renamed to %s", newPath), nil
-}
-
-func testCopy(testDir string) (string, error) {
-	src := filepath.Join(testDir, "test.txt")
-	dst := filepath.Join(testDir, "test-copy.txt")
-
-	data, err := os.ReadFile(src)
-	if err != nil {
-		return "", err
-	}
-	if err := os.WriteFile(dst, data, 0644); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("copied to %s", dst), nil
-}
-
-func testDeleteFile(testDir string) (string, error) {
-	path := filepath.Join(testDir, "test-copy.txt")
-	if err := os.Remove(path); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("deleted %s", path), nil
-}
-
-func testRmdir(testDir string) (string, error) {
-	// first remove files in subdir
-	subdir := filepath.Join(testDir, "subdir")
-	entries, _ := os.ReadDir(subdir)
-	for _, e := range entries {
-		os.Remove(filepath.Join(subdir, e.Name()))
-	}
-	if err := os.Remove(subdir); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("removed directory %s", subdir), nil
-}
-
-func testLargeFile(testDir string) (string, error) {
-	path := filepath.Join(testDir, "large.bin")
-	data := make([]byte, 1024*1024) // 1MB
-	for i := range data {
-		data[i] = byte(i % 256)
-	}
-
-	start := time.Now()
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return "", err
-	}
-	duration := time.Since(start)
-	speed := float64(len(data)) / duration.Seconds() / 1024 / 1024
-
-	os.Remove(path)
-	return fmt.Sprintf("wrote 1MB in %v (%.2f MB/s)", duration, speed), nil
-}
-
-func testConcurrentWrites(testDir string) (string, error) {
-	var wg sync.WaitGroup
-	errors := make(chan error, 5)
-
-	for i := 0; i < 5; i++ {
-		wg.Add(1)
-		go func(n int) {
-			defer wg.Done()
-			path := filepath.Join(testDir, fmt.Sprintf("concurrent-%d.txt", n))
-			if err := os.WriteFile(path, []byte(fmt.Sprintf("concurrent write %d", n)), 0644); err != nil {
-				errors <- err
-			}
-		}(i)
-	}
-
-	wg.Wait()
-	close(errors)
-
-	for err := range errors {
-		return "", err
-	}
-
-	// cleanup
-	for i := 0; i < 5; i++ {
-		os.Remove(filepath.Join(testDir, fmt.Sprintf("concurrent-%d.txt", i)))
-	}
-
-	return "5 concurrent writes successful", nil
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

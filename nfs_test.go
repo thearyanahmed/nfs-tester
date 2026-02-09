@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-// testBasePath returns the directory to run NFS tests against.
-// uses NFS_PATH env var if set (for real NFS testing), otherwise a temp dir.
 func testBasePath(t *testing.T) string {
 	t.Helper()
 	if p := os.Getenv("NFS_PATH"); p != "" {
@@ -27,11 +25,17 @@ func TestIsolatedSuite(t *testing.T) {
 
 	for _, op := range coreOps() {
 		t.Run(op.Name, func(t *testing.T) {
-			details, err := op.Fn(dir)
+			res, err := op.Fn(dir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
-			t.Logf("%s: %s", op.Name, details)
+			if res.Before != "" {
+				t.Logf("before: %s", res.Before)
+			}
+			if res.After != "" {
+				t.Logf("after:  %s", res.After)
+			}
+			t.Logf("details: %s", res.Details)
 		})
 	}
 }
@@ -45,27 +49,31 @@ func TestSharedSuite(t *testing.T) {
 
 	for _, op := range coreOps() {
 		t.Run("core/"+op.Name, func(t *testing.T) {
-			details, err := op.Fn(runDir)
+			res, err := op.Fn(runDir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
-			t.Logf("%s: %s", op.Name, details)
+			if res.Before != "" {
+				t.Logf("before: %s", res.Before)
+			}
+			if res.After != "" {
+				t.Logf("after:  %s", res.After)
+			}
+			t.Logf("details: %s", res.Details)
 		})
 	}
 
 	for _, op := range sharedOps(runID) {
 		t.Run("shared/"+op.Name, func(t *testing.T) {
-			details, err := op.Fn(sharedDir)
+			res, err := op.Fn(sharedDir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
-			t.Logf("%s: %s", op.Name, details)
+			t.Logf("details: %s", res.Details)
 		})
 	}
 }
 
-// TestIndividualOps tests each operation in isolation with its own temp dir.
-// only ops that don't depend on artifacts from earlier ops.
 func TestIndividualOps(t *testing.T) {
 	independent := map[string]bool{
 		"create_file":       true,
@@ -91,11 +99,17 @@ func TestIndividualOps(t *testing.T) {
 		}
 		t.Run(op.Name, func(t *testing.T) {
 			dir := t.TempDir()
-			details, err := op.Fn(dir)
+			res, err := op.Fn(dir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
-			t.Logf("%s: %s", op.Name, details)
+			if res.Before != "" {
+				t.Logf("before: %s", res.Before)
+			}
+			if res.After != "" {
+				t.Logf("after:  %s", res.After)
+			}
+			t.Logf("details: %s", res.Details)
 		})
 	}
 }
