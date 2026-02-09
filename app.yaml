@@ -31,7 +31,8 @@ services:
   github:
     repo: thearyanahmed/nfs-tester
     branch: master
-  dockerfile_path: session-watcher/Dockerfile
+  source_dir: session-watcher
+  dockerfile_path: Dockerfile
   http_port: 8081
   instance_size_slug: apps-s-1vcpu-0.5gb
   instance_count: 1
