@@ -31,9 +31,14 @@ func main() {
 	log.Printf("watching: %s", sessionPath)
 	log.Printf("hostname: %s", hostname)
 
-	http.HandleFunc("/", handleIndex)
+	// routes with /watcher prefix (App Platform ingress forwards prefix as-is)
+	http.HandleFunc("/watcher/", handleIndex)
+	http.HandleFunc("/watcher/health", handleHealth)
+	http.HandleFunc("/watcher/api/v1/digest", handleDigest)
+
+	// bare routes for health checks and direct access
 	http.HandleFunc("/health", handleHealth)
-	http.HandleFunc("/api/v1/digest", handleDigest)
+	http.HandleFunc("/", handleIndex)
 
 	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
@@ -56,7 +61,7 @@ func handleDigest(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
+	if r.URL.Path != "/" && r.URL.Path != "/watcher/" && r.URL.Path != "/watcher" {
 		http.NotFound(w, r)
 		return
 	}
