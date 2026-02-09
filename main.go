@@ -72,6 +72,7 @@ func main() {
 	http.HandleFunc("/api/v1/info", handleInfo)
 	http.HandleFunc("/api/v1/matrix", handleMatrix)
 	http.HandleFunc("/api/v1/exec", handleExec)
+	http.HandleFunc("/api/v1/test-suite", handleTestSuite)
 
 	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
@@ -91,6 +92,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 			{"method": "GET", "path": "/api/v1/info", "description": "System and mount info"},
 			{"method": "GET", "path": "/api/v1/matrix", "description": "Run full NFS test matrix"},
 			{"method": "GET", "path": "/api/v1/exec?cmd=<cmd>&cwd=<path>", "description": "Execute shell command"},
+			{"method": "GET", "path": "/api/v1/test-suite", "description": "Run full NFS test suite (isolated + shared)"},
 		},
 	}
 	writeJSON(w, info)
@@ -257,6 +259,43 @@ func handleExec(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, resp)
+}
+
+func handleTestSuite(w http.ResponseWriter, r *http.Request) {
+	u, _ := user.Current()
+	runID := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	mountInfo := ""
+	if out, err := exec.Command("mount").Output(); err == nil {
+		for _, line := range strings.Split(string(out), "\n") {
+			if strings.Contains(line, nfsPath) {
+				mountInfo = line
+				break
+			}
+		}
+	}
+
+	isolated := RunIsolatedSuite(nfsPath, runID)
+	shared := RunSharedSuite(nfsPath, runID)
+
+	result := FullSuiteResult{
+		Timestamp: time.Now().UTC().Format(time.RFC3339),
+		RunID:     runID,
+		User:      u.Username,
+		UID:       u.Uid,
+		GID:       u.Gid,
+		MountPath: nfsPath,
+		MountInfo: mountInfo,
+		Isolated:  isolated,
+		Shared:    shared,
+		OverallSummary: SuiteSummary{
+			Pass:  isolated.Summary.Pass + shared.Summary.Pass,
+			Fail:  isolated.Summary.Fail + shared.Summary.Fail,
+			Total: isolated.Summary.Total + shared.Summary.Total,
+		},
+	}
+
+	writeJSON(w, result)
 }
 
 // test functions
