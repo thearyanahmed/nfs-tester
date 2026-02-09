@@ -114,19 +114,19 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 <head>
   <title>NFS Session Demo</title>
   <style>
-    body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #1a1a2e; color: #e0e0e0; }
-    h1 { color: #00d4ff; }
-    h2 { color: #8892b0; margin-top: 30px; }
-    .card { background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 20px; margin: 16px 0; }
-    input { padding: 8px 12px; margin: 4px; background: #0f3460; border: 1px solid #00d4ff; color: #e0e0e0; border-radius: 4px; }
-    button { padding: 8px 16px; margin: 4px; background: #00d4ff; color: #1a1a2e; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    button:hover { background: #00b4d8; }
-    button.danger { background: #e74c3c; color: white; }
-    #result { white-space: pre-wrap; margin-top: 12px; padding: 12px; background: #0d1117; border-radius: 4px; min-height: 40px; }
-    .served-by { color: #00d4ff; font-weight: bold; }
+    body { font-family: monospace; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #f8f9fa; color: #212529; }
+    h1 { color: #0056b3; }
+    h2 { color: #495057; margin-top: 30px; }
+    .card { background: #fff; border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; margin: 16px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    input { padding: 8px 12px; margin: 4px; background: #fff; border: 1px solid #ced4da; color: #212529; border-radius: 4px; }
+    button { padding: 8px 16px; margin: 4px; background: #0056b3; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    button:hover { background: #004094; }
+    button.danger { background: #dc3545; color: white; }
+    #result { white-space: pre-wrap; margin-top: 12px; padding: 12px; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; min-height: 40px; }
+    .served-by { color: #0056b3; font-weight: bold; }
     table { width: 100%%; border-collapse: collapse; }
-    td, th { padding: 6px 12px; text-align: left; border-bottom: 1px solid #0f3460; }
-    a { color: #00d4ff; }
+    td, th { padding: 6px 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
+    a { color: #0056b3; }
   </style>
 </head>
 <body>
@@ -146,7 +146,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
     <button onclick="doMe()">Who am I? (GET /api/v1/me)</button>
     <button onclick="doLogout()" class="danger">Logout</button>
     <button onclick="doSessions()">List all sessions</button>
-    <button onclick="doLoop()">Loop 20x (test both instances)</button>
+    <button onclick="doLoop()">Loop 200x (test all instances)</button>
     <div id="result">click a button...</div>
   </div>
 
@@ -192,10 +192,10 @@ async function doSessions() {
 }
 
 async function doLoop() {
-  out.textContent = 'running 20 requests...\n';
+  out.textContent = 'running 200 requests...\n';
   const instances = {};
   let failures = 0;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 200; i++) {
     const resp = await fetch('/api/v1/me');
     if (resp.ok) {
       const data = await resp.json();
@@ -208,7 +208,7 @@ async function doLoop() {
   }
   const keys = Object.keys(instances);
   out.textContent += '\n--- summary ---\n';
-  out.textContent += 'total: 20, ok: ' + (20-failures) + ', fail: ' + failures + '\n';
+  out.textContent += 'total: 200, ok: ' + (200-failures) + ', fail: ' + failures + '\n';
   out.textContent += 'instances hit: ' + keys.length + '\n';
   for (const [k,v] of Object.entries(instances)) {
     out.textContent += '  ' + k + ': ' + v + ' requests\n';

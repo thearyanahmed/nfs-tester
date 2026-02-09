@@ -16,10 +16,10 @@ check() {
   local desc="$1" expected_status="$2" actual_status="$3"
   if [ "$actual_status" -eq "$expected_status" ]; then
     echo "  PASS: $desc (HTTP $actual_status)"
-    ((pass++))
+    pass=$((pass + 1))
   else
     echo "  FAIL: $desc (expected $expected_status, got $actual_status)"
-    ((fail++))
+    fail=$((fail + 1))
   fi
 }
 
@@ -39,25 +39,25 @@ check "POST /api/v1/login" 200 "$status"
 # 2. loop 20x, collect served_by instances
 echo ""
 echo "--- step 2: loop 20x GET /api/v1/me ---"
-declare -A instance_hits 2>/dev/null || true
 instances=""
 ok_count=0
 fail_count=0
+RESP_FILE=$(mktemp)
 
 for i in $(seq 1 20); do
-  resp=$(curl -s -b "$COOKIE_JAR" "$BASE_URL/api/v1/me")
-  http_status=$(curl -s -o /dev/null -w '%{http_code}' -b "$COOKIE_JAR" "$BASE_URL/api/v1/me")
+  http_status=$(curl -s -w '%{http_code}' -b "$COOKIE_JAR" -o "$RESP_FILE" "$BASE_URL/api/v1/me")
 
   if [ "$http_status" -eq 200 ]; then
-    served_by=$(echo "$resp" | grep -o '"served_by"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/".*//')
+    served_by=$(grep -o '"served_by"[[:space:]]*:[[:space:]]*"[^"]*"' "$RESP_FILE" | head -1 | sed 's/.*: *"//;s/".*//')
     echo "  #$i 200 served_by=$served_by"
     instances="$instances $served_by"
-    ((ok_count++))
+    ok_count=$((ok_count + 1))
   else
     echo "  #$i $http_status FAIL"
-    ((fail_count++))
+    fail_count=$((fail_count + 1))
   fi
 done
+rm -f "$RESP_FILE"
 
 # count unique instances
 unique=$(echo "$instances" | tr ' ' '\n' | sort -u | grep -v '^$' | wc -l | tr -d ' ')
@@ -67,15 +67,15 @@ echo "  unique instances: $unique"
 
 if [ "$ok_count" -eq 20 ]; then
   echo "  PASS: all requests returned 200"
-  ((pass++))
+  pass=$((pass + 1))
 else
   echo "  FAIL: $fail_count requests failed"
-  ((fail++))
+  fail=$((fail + 1))
 fi
 
 if [ "$unique" -ge 2 ]; then
   echo "  PASS: requests served by $unique different instances"
-  ((pass++))
+  pass=$((pass + 1))
 else
   echo "  WARN: all requests hit same instance (check instance_count)"
 fi
