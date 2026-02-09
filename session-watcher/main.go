@@ -27,7 +27,7 @@ type SessionDigest struct {
 }
 
 func main() {
-	log.Printf("session-watcher starting on %s", listenAddr)
+	log.Printf("session-watcher v2 starting on %s", listenAddr)
 	log.Printf("watching: %s", sessionPath)
 	log.Printf("hostname: %s", hostname)
 
