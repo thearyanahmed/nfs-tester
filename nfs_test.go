@@ -29,6 +29,9 @@ func TestIsolatedSuite(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
+			if res.Context != "" {
+				t.Logf("context: %s", res.Context)
+			}
 			if res.Before != "" {
 				t.Logf("before: %s", res.Before)
 			}
@@ -53,6 +56,9 @@ func TestSharedSuite(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
 			}
+			if res.Context != "" {
+				t.Logf("context: %s", res.Context)
+			}
 			if res.Before != "" {
 				t.Logf("before: %s", res.Before)
 			}
@@ -68,6 +74,9 @@ func TestSharedSuite(t *testing.T) {
 			res, err := op.Fn(sharedDir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
+			}
+			if res.Context != "" {
+				t.Logf("context: %s", res.Context)
 			}
 			t.Logf("details: %s", res.Details)
 		})
@@ -102,6 +111,9 @@ func TestIndividualOps(t *testing.T) {
 			res, err := op.Fn(dir)
 			if err != nil {
 				t.Fatalf("%s failed: %v", op.Name, err)
+			}
+			if res.Context != "" {
+				t.Logf("context: %s", res.Context)
 			}
 			if res.Before != "" {
 				t.Logf("before: %s", res.Before)

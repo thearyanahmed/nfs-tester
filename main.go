@@ -18,6 +18,7 @@ type TestResult struct {
 	Pass     bool   `json:"pass"`
 	Before   string `json:"before,omitempty"`
 	After    string `json:"after,omitempty"`
+	Context  string `json:"context,omitempty"`
 	Error    string `json:"error,omitempty"`
 	Details  string `json:"details,omitempty"`
 	Duration string `json:"duration"`
