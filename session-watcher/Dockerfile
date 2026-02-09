@@ -2,8 +2,8 @@ FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 COPY go.mod .
-COPY *.go .
-RUN go build -o nfs-tester .
+COPY main.go .
+RUN go build -o session-watcher .
 
 FROM alpine:3.19
 
@@ -11,15 +11,13 @@ RUN apk add --no-cache ca-certificates && \
     addgroup -g 1000 apps && \
     adduser -u 1000 -G apps -D -h /home/apps apps
 
-COPY --from=builder /app/nfs-tester /usr/local/bin/nfs-tester
+COPY --from=builder /app/session-watcher /usr/local/bin/session-watcher
 
 USER 1000:1000
 
-ENV NFS_PATH=/mnt/nfs
-ENV LISTEN_ADDR=:8080
 ENV SESSION_PATH=/data/sessions
-ENV IMAGES_PATH=/data/images
+ENV LISTEN_ADDR=:8081
 
-EXPOSE 8080
+EXPOSE 8081
 
-CMD ["nfs-tester"]
+CMD ["session-watcher"]

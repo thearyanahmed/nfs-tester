@@ -1,10 +1,30 @@
 name: nfs-tester
 services:
-  - name: app
-    dockerfile_path: Dockerfile
-    github:
-      repo: thearyanahmed/nfs-tester
-      branch: main
-    http_port: 8080
-    instance_count: 1
-    instance_size_slug: apps-s-1vcpu-0.5gb
+- name: app
+  github:
+    repo: thearyanahmed/nfs-tester
+    branch: master
+  dockerfile_path: Dockerfile
+  http_port: 8080
+  instance_size_slug: apps-s-1vcpu-2gb
+  instance_count: 3
+  health_check:
+    http_path: /health
+  envs:
+  - key: SESSION_PATH
+    value: /data/sessions
+  - key: IMAGES_PATH
+    value: /data/images
+- name: session-watcher
+  github:
+    repo: thearyanahmed/nfs-tester
+    branch: master
+  dockerfile_path: session-watcher/Dockerfile
+  http_port: 8081
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  instance_count: 1
+  health_check:
+    http_path: /health
+  envs:
+  - key: SESSION_PATH
+    value: /data/sessions

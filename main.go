@@ -15,6 +15,7 @@ import (
 
 var (
 	sessionPath = getEnv("SESSION_PATH", "/data/sessions")
+	imagesPath  = getEnv("IMAGES_PATH", "/data/images")
 	hostname    = getHostname()
 )
 
@@ -80,9 +81,11 @@ func main() {
 	log.Printf("nfs-tester starting on %s", listenAddr)
 	log.Printf("NFS path: %s", nfsPath)
 	log.Printf("Session path: %s", sessionPath)
+	log.Printf("Images path: %s", imagesPath)
 	log.Printf("Hostname: %s", hostname)
 
 	sessions = NewSessionStore(sessionPath)
+	os.MkdirAll(imagesPath, 0755)
 
 	u, _ := user.Current()
 	log.Printf("Running as: %s (uid=%s, gid=%s)", u.Username, u.Uid, u.Gid)
@@ -98,6 +101,11 @@ func main() {
 	http.HandleFunc("/api/v1/me", handleMe)
 	http.HandleFunc("/api/v1/logout", handleLogout)
 	http.HandleFunc("/api/v1/sessions", handleSessions)
+
+	http.HandleFunc("/api/v1/images/upload", handleImageUpload)
+	http.HandleFunc("/api/v1/images/delete/", handleImageDelete)
+	http.HandleFunc("/api/v1/images/", handleImageRouter)
+	http.HandleFunc("/api/v1/images", handleImageList)
 
 	log.Fatal(http.ListenAndServe(listenAddr, nil))
 }
@@ -148,6 +156,16 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
     <button onclick="doSessions()">List all sessions</button>
     <button onclick="doLoop()">Loop 200x (test all instances)</button>
     <div id="result">click a button...</div>
+  </div>
+
+  <div class="card">
+    <h2>Image Gallery (shared NFS)</h2>
+    <p>Upload images on any instance, view from all instances.</p>
+    <input type="file" id="imageFile" accept="image/*">
+    <button onclick="doUpload()">Upload</button>
+    <button onclick="doGallery()">Refresh Gallery</button>
+    <div id="gallery" style="margin-top:12px; display:flex; flex-wrap:wrap; gap:12px;"></div>
+    <div id="imgResult" style="margin-top:8px; color:#495057;"></div>
   </div>
 
   <div class="card">
@@ -219,6 +237,54 @@ async function doLoop() {
     out.textContent += '\nall requests hit same instance (try more requests or check instance_count)\n';
   }
 }
+
+const gallery = document.getElementById('gallery');
+const imgResult = document.getElementById('imgResult');
+
+async function doUpload() {
+  const input = document.getElementById('imageFile');
+  if (!input.files.length) { imgResult.textContent = 'select a file first'; return; }
+  const form = new FormData();
+  form.append('image', input.files[0]);
+  imgResult.textContent = 'uploading...';
+  const resp = await fetch('/api/v1/images/upload', {method:'POST', body: form});
+  const data = await resp.json();
+  imgResult.textContent = resp.ok
+    ? 'uploaded ' + data.filename + ' (' + data.size + ' bytes) via ' + data.served_by
+    : 'error: ' + (data.error || resp.statusText);
+  if (resp.ok) doGallery();
+}
+
+async function doGallery() {
+  const resp = await fetch('/api/v1/images');
+  const data = await resp.json();
+  gallery.innerHTML = '';
+  if (!data.images || data.images.length === 0) {
+    gallery.innerHTML = '<p style="color:#868e96">no images yet</p>';
+    return;
+  }
+  data.images.forEach(img => {
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1px solid #dee2e6; border-radius:4px; padding:8px; text-align:center; width:160px; background:#fff;';
+    card.innerHTML = '<a href="' + img.url + '" target="_blank">'
+      + '<img src="' + img.url + '" style="max-width:140px; max-height:140px; display:block; margin:0 auto 6px;">'
+      + '</a>'
+      + '<div style="font-size:11px; word-break:break-all;">' + img.name + '</div>'
+      + '<div style="font-size:10px; color:#868e96;">' + (img.size/1024).toFixed(1) + ' KB</div>'
+      + '<button class="danger" style="font-size:11px; padding:2px 8px; margin-top:4px;" onclick="doDeleteImage(\'' + img.name + '\')">delete</button>';
+    gallery.appendChild(card);
+  });
+  imgResult.textContent = data.count + ' image(s), served by ' + data.served_by;
+}
+
+async function doDeleteImage(name) {
+  const resp = await fetch('/api/v1/images/delete/' + encodeURIComponent(name), {method:'POST'});
+  const data = await resp.json();
+  imgResult.textContent = resp.ok ? 'deleted ' + name : 'error: ' + (data.error || resp.statusText);
+  doGallery();
+}
+
+doGallery();
 </script>
 </body>
 </html>`, hostname)
