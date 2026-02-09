@@ -113,23 +113,33 @@ func sharedOps(runID string) []op {
 }
 
 // runOps executes a list of operations and collects results.
+// recovers from panics (e.g. nil stat results when earlier ops fail) so the suite always returns.
 func runOps(dir string, ops []op) []TestResult {
 	var results []TestResult
 	for _, o := range ops {
 		tr := TestResult{Name: o.Name}
 		start := time.Now()
-		res, err := o.Fn(dir)
-		tr.Duration = time.Since(start).String()
-		if err != nil {
-			tr.Pass = false
-			tr.Error = err.Error()
-		} else {
-			tr.Pass = true
-		}
-		tr.Before = res.Before
-		tr.After = res.After
-		tr.Context = res.Context
-		tr.Details = res.Details
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					tr.Pass = false
+					tr.Error = fmt.Sprintf("panic: %v", r)
+					tr.Duration = time.Since(start).String()
+				}
+			}()
+			res, err := o.Fn(dir)
+			tr.Duration = time.Since(start).String()
+			if err != nil {
+				tr.Pass = false
+				tr.Error = err.Error()
+			} else {
+				tr.Pass = true
+			}
+			tr.Before = res.Before
+			tr.After = res.After
+			tr.Context = res.Context
+			tr.Details = res.Details
+		}()
 		results = append(results, tr)
 	}
 	return results
