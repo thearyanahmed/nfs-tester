@@ -1,4 +1,16 @@
 name: nfs-tester
+ingress:
+  rules:
+  - component:
+      name: app
+    match:
+      path:
+        prefix: /
+  - component:
+      name: session-watcher
+    match:
+      path:
+        prefix: /watcher
 services:
 - name: app
   github:
