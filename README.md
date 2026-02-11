@@ -1,23 +1,17 @@
 # nfs-tester
 
-Go REST API for testing NFS operations across multiple app instances. Demonstrates shared sessions, image gallery, and a full NFS test suite — all backed by a single NFS mount.
+Simple Go REST API for testing NFS operations.
 
 ## User
 
-- **UID**: 1000
-- **GID**: 1000
-- **User**: apps
-
-## Architecture
-
-- **app** (3 instances, port 8080) — main service with sessions, image gallery, shell, test suite
-- **session-watcher** (1 instance, port 8081) — read-only session viewer at `/watcher/`
+- **UID**: 998
+- **GID**: 678
+- **User**: nfstest
 
 ## Build
 
 ```bash
 docker build -t nfs-tester .
-docker build -f Dockerfile.session-watcher -t session-watcher .
 ```
 
 ## Run locally
@@ -28,44 +22,36 @@ docker run -p 8080:8080 -v /path/to/nfs:/mnt/nfs nfs-tester
 
 ## Endpoints
 
-### Main app
-
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/` | Main page (login, sessions, gallery, shell, test suite) |
+| GET | `/` | Service info |
 | GET | `/health` | Health check |
 | GET | `/api/v1/info` | System and mount info |
-| GET | `/api/v1/matrix` | Run NFS test matrix |
-| GET | `/api/v1/test-suite` | Full NFS test suite (isolated + shared) |
+| GET | `/api/v1/matrix` | Run full NFS test matrix |
 | GET | `/api/v1/exec?cmd=<cmd>&cwd=<path>` | Execute shell command |
-| POST | `/api/v1/login` | Login (JSON: `{"username":"alice","password":"secret12"}`) |
-| GET | `/api/v1/me` | Current session info |
-| POST | `/api/v1/logout` | Logout |
-| GET | `/api/v1/sessions` | List all sessions |
-| POST | `/api/v1/images/upload` | Upload image (multipart form) |
-| GET | `/api/v1/images` | List images |
-| POST | `/api/v1/images/delete/<name>` | Delete image |
 
-### Session watcher
+## Test Matrix
 
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/watcher/` | Live session viewer (auto-refreshes every 5s) |
-| GET | `/watcher/health` | Health check |
-| GET | `/watcher/api/v1/digest` | Session file digests (JSON) |
+The `/api/v1/matrix` endpoint runs these tests:
 
-## Demo users
+1. create_file
+2. read_file
+3. append_file
+4. overwrite_file
+5. mkdir
+6. create_in_subdir
+7. chmod
+8. rename
+9. copy
+10. delete_file
+11. rmdir
+12. large_file_1mb
+13. concurrent_writes
 
-All users share the password `secret12`:
+## NFS Export Config
 
-alice, bob, zach, soulan, anish, bikram
+For this app to work with NFS, configure the export with matching UID:
 
-## Deploy
-
-```bash
-# deploy (force build)
-./deploy.sh
-
-# deploy + mount NFS
-./redeploy.sh
+```
+/data/export *(rw,sync,all_squash,anonuid=998,anongid=678,no_subtree_check,insecure)
 ```

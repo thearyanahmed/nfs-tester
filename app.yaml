@@ -2,25 +2,15 @@ name: nfs-tester
 ingress:
   rules:
   - component:
-      name: watcher-root
+      name: app
     match:
       path:
-        prefix: /watcher-root
-  - component:
-      name: watcher-other
-    match:
-      path:
-        prefix: /watcher-other
+        prefix: /
   - component:
       name: session-watcher
     match:
       path:
         prefix: /watcher
-  - component:
-      name: app
-    match:
-      path:
-        prefix: /
 services:
 - name: app
   github:
@@ -34,9 +24,9 @@ services:
     http_path: /health
   envs:
   - key: SESSION_PATH
-    value: /mnt/nfs/sessions
+    value: /data/sessions
   - key: IMAGES_PATH
-    value: /mnt/nfs/images
+    value: /data/images
 - name: session-watcher
   github:
     repo: thearyanahmed/nfs-tester
@@ -49,34 +39,4 @@ services:
     http_path: /health
   envs:
   - key: SESSION_PATH
-    value: /mnt/nfs/sessions
-- name: watcher-root
-  github:
-    repo: thearyanahmed/nfs-tester
-    branch: master
-  dockerfile_path: Dockerfile.session-watcher-root
-  http_port: 8081
-  instance_size_slug: apps-s-1vcpu-0.5gb
-  instance_count: 1
-  health_check:
-    http_path: /health
-  envs:
-  - key: SESSION_PATH
-    value: /mnt/nfs/sessions
-  - key: ROUTE_PREFIX
-    value: /watcher-root
-- name: watcher-other
-  github:
-    repo: thearyanahmed/nfs-tester
-    branch: master
-  dockerfile_path: Dockerfile.session-watcher-other
-  http_port: 8081
-  instance_size_slug: apps-s-1vcpu-0.5gb
-  instance_count: 1
-  health_check:
-    http_path: /health
-  envs:
-  - key: SESSION_PATH
-    value: /mnt/nfs/sessions
-  - key: ROUTE_PREFIX
-    value: /watcher-other
+    value: /data/sessions

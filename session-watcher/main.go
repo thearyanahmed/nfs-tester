@@ -15,7 +15,6 @@ import (
 var (
 	sessionPath = getEnv("SESSION_PATH", "/data/sessions")
 	listenAddr  = getEnv("LISTEN_ADDR", ":8081")
-	routePrefix = getEnv("ROUTE_PREFIX", "/watcher")
 	hostname    = getHostname()
 )
 
@@ -28,14 +27,14 @@ type SessionDigest struct {
 }
 
 func main() {
-	log.Printf("session-watcher v2 starting on %s (prefix: %s)", listenAddr, routePrefix)
+	log.Printf("session-watcher v2 starting on %s", listenAddr)
 	log.Printf("watching: %s", sessionPath)
 	log.Printf("hostname: %s", hostname)
 
-	// prefixed routes (ingress forwards prefix as-is)
-	http.HandleFunc(routePrefix+"/", handleIndex)
-	http.HandleFunc(routePrefix+"/health", handleHealth)
-	http.HandleFunc(routePrefix+"/api/v1/digest", handleDigest)
+	// routes with /watcher prefix (App Platform ingress forwards prefix as-is)
+	http.HandleFunc("/watcher/", handleIndex)
+	http.HandleFunc("/watcher/health", handleHealth)
+	http.HandleFunc("/watcher/api/v1/digest", handleDigest)
 
 	// bare routes for health checks and direct access
 	http.HandleFunc("/health", handleHealth)
@@ -62,7 +61,7 @@ func handleDigest(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" && r.URL.Path != routePrefix+"/" && r.URL.Path != routePrefix {
+	if r.URL.Path != "/" && r.URL.Path != "/watcher/" && r.URL.Path != "/watcher" {
 		http.NotFound(w, r)
 		return
 	}
@@ -116,54 +115,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Fprint(w, `
-  <h2 style="margin-top:30px; color:#495057;">Cross-UID Comparison</h2>
-  <p style="font-size:12px; color:#868e96;">fetches from all three watchers to compare read access across UIDs</p>
-  <div id="comparison"></div>
-
-<script>
-const watchers = [
-  {name: 'watcher (1000:1000)', url: '/watcher/api/v1/digest'},
-  {name: 'watcher-root (0:0)', url: '/watcher-root/api/v1/digest'},
-  {name: 'watcher-other (2000:2000)', url: '/watcher-other/api/v1/digest'},
-];
-
-async function loadComparison() {
-  const container = document.getElementById('comparison');
-  let html = '';
-  for (const w of watchers) {
-    try {
-      const resp = await fetch(w.url);
-      const ok = resp.ok;
-      html += '<div style="margin:12px 0; padding:12px; background:#fff; border:1px solid #dee2e6; border-radius:8px;">';
-      html += '<strong>' + w.name + '</strong> — served by: ';
-      if (!ok) {
-        html += '<span style="color:#dc3545;">HTTP ' + resp.status + '</span>';
-        html += '</div>';
-        continue;
-      }
-      const data = await resp.json();
-      html += '<span style="color:#0056b3;">' + data.served_by + '</span>';
-      html += ' — sessions: <span style="background:#0056b3;color:#fff;padding:1px 6px;border-radius:8px;font-size:11px;">' + data.count + '</span>';
-      if (data.count === 0) {
-        html += '<div style="color:#868e96; padding:8px 0;">no sessions visible</div>';
-      } else {
-        html += '<table style="width:100%;margin-top:8px;font-size:12px;border-collapse:collapse;">';
-        html += '<tr><th style="text-align:left;padding:4px 8px;background:#e9ecef;">User</th><th style="text-align:left;padding:4px 8px;background:#e9ecef;">File</th><th style="text-align:left;padding:4px 8px;background:#e9ecef;">MD5</th><th style="text-align:left;padding:4px 8px;background:#e9ecef;">Size</th></tr>';
-        data.sessions.forEach(s => {
-          html += '<tr><td style="padding:4px 8px;">' + s.username + '</td><td style="padding:4px 8px;">' + s.filename + '</td><td style="padding:4px 8px;font-size:10px;color:#495057;">' + s.md5 + '</td><td style="padding:4px 8px;">' + s.size + ' B</td></tr>';
-        });
-        html += '</table>';
-      }
-      html += '</div>';
-    } catch(e) {
-      html += '<div style="margin:12px 0; padding:12px; background:#fff; border:1px solid #dee2e6; border-radius:8px;">';
-      html += '<strong>' + w.name + '</strong> — <span style="color:#dc3545;">error: ' + e.message + '</span></div>';
-    }
-  }
-  container.innerHTML = html;
-}
-loadComparison();
-</script>
+  <p style="margin-top:20px; font-size:12px; color:#868e96;">
+    this component only mounts <code>/data/sessions</code> — it cannot see <code>/data/images</code>
+  </p>
 </body>
 </html>`)
 }

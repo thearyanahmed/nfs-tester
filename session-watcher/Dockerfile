@@ -1,19 +1,19 @@
 FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
-COPY session-watcher/go.mod .
-COPY session-watcher/main.go .
+COPY go.mod .
+COPY main.go .
 RUN go build -o session-watcher .
 
 FROM alpine:3.19
 
 RUN apk add --no-cache ca-certificates && \
-    addgroup -g 2000 other && \
-    adduser -u 2000 -G other -D -h /home/other other
+    addgroup -g 1000 apps && \
+    adduser -u 1000 -G apps -D -h /home/apps apps
 
 COPY --from=builder /app/session-watcher /usr/local/bin/session-watcher
 
-USER 2000:2000
+USER 1000:1000
 
 ENV SESSION_PATH=/data/sessions
 ENV LISTEN_ADDR=:8081

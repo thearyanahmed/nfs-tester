@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,12 +20,8 @@ type Session struct {
 
 // hardcoded users for the demo
 var validUsers = map[string]string{
-	"alice":  "secret12",
-	"bob":    "secret12",
-	"zach":   "secret12",
-	"soulan": "secret12",
-	"anish":  "secret12",
-	"bikram": "secret12",
+	"alice": "password123",
+	"bob":   "password456",
 }
 
 type SessionStore struct {
@@ -34,21 +29,10 @@ type SessionStore struct {
 }
 
 func NewSessionStore(dir string) *SessionStore {
-	s := &SessionStore{dir: dir}
-	s.ensureDir()
-	return s
-}
-
-func (s *SessionStore) ensureDir() {
-	parent := filepath.Dir(s.dir)
-	if _, err := os.Stat(parent); err != nil {
-		log.Printf("warning: mount %s not available yet: %v", parent, err)
-		return
-	}
-	if err := os.Mkdir(s.dir, 0755); err != nil && !os.IsExist(err) {
-		log.Printf("warning: mkdir %s failed: %v", s.dir, err)
-	}
-	os.Chmod(s.dir, 0755)
+	os.MkdirAll(dir, 0755)
+	// gvisor gofer ignores mode on mkdir over NFS, force correct perms
+	os.Chmod(dir, 0755)
+	return &SessionStore{dir: dir}
 }
 
 func (s *SessionStore) Create(username, hostname string) (*Session, error) {
@@ -68,12 +52,6 @@ func (s *SessionStore) Create(username, hostname string) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal session: %w", err)
 	}
-
-	// ensure dir exists (may not exist yet if NFS wasn't mounted at boot)
-	if err := os.MkdirAll(s.dir, 0755); err != nil {
-		return nil, fmt.Errorf("create session dir: %w", err)
-	}
-	os.Chmod(s.dir, 0755)
 
 	path := filepath.Join(s.dir, id+".json")
 	if err := os.WriteFile(path, data, 0644); err != nil {
