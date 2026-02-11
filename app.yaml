@@ -24,9 +24,9 @@ services:
     http_path: /health
   envs:
   - key: SESSION_PATH
-    value: /data/sessions
+    value: /mnt/nfs/sessions
   - key: IMAGES_PATH
-    value: /data/images
+    value: /mnt/nfs/images
 - name: session-watcher
   github:
     repo: thearyanahmed/nfs-tester
@@ -39,4 +39,4 @@ services:
     http_path: /health
   envs:
   - key: SESSION_PATH
-    value: /data/sessions
+    value: /mnt/nfs/sessions
