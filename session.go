@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,9 +34,11 @@ type SessionStore struct {
 }
 
 func NewSessionStore(dir string) *SessionStore {
-	os.MkdirAll(dir, 0755)
-	// gvisor gofer ignores mode on mkdir over NFS, force correct perms
-	os.Chmod(dir, 0755)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		log.Printf("warning: mkdir %s failed: %v (will retry on first write)", dir, err)
+	} else {
+		os.Chmod(dir, 0755)
+	}
 	return &SessionStore{dir: dir}
 }
 
@@ -56,6 +59,12 @@ func (s *SessionStore) Create(username, hostname string) (*Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("marshal session: %w", err)
 	}
+
+	// ensure dir exists (may not exist yet if NFS wasn't mounted at boot)
+	if err := os.MkdirAll(s.dir, 0755); err != nil {
+		return nil, fmt.Errorf("create session dir: %w", err)
+	}
+	os.Chmod(s.dir, 0755)
 
 	path := filepath.Join(s.dir, id+".json")
 	if err := os.WriteFile(path, data, 0644); err != nil {

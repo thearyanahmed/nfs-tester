@@ -85,9 +85,11 @@ func main() {
 	log.Printf("Hostname: %s", hostname)
 
 	sessions = NewSessionStore(sessionPath)
-	os.MkdirAll(imagesPath, 0755)
-	// gvisor gofer ignores mode on mkdir over NFS, force correct perms
-	os.Chmod(imagesPath, 0755)
+	if err := os.MkdirAll(imagesPath, 0755); err != nil {
+		log.Printf("warning: mkdir %s failed: %v (will create on first upload)", imagesPath, err)
+	} else {
+		os.Chmod(imagesPath, 0755)
+	}
 
 	u, _ := user.Current()
 	log.Printf("Running as: %s (uid=%s, gid=%s)", u.Username, u.Uid, u.Gid)
