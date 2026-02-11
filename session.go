@@ -34,12 +34,21 @@ type SessionStore struct {
 }
 
 func NewSessionStore(dir string) *SessionStore {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		log.Printf("warning: mkdir %s failed: %v (will retry on first write)", dir, err)
-	} else {
-		os.Chmod(dir, 0755)
+	s := &SessionStore{dir: dir}
+	s.ensureDir()
+	return s
+}
+
+func (s *SessionStore) ensureDir() {
+	parent := filepath.Dir(s.dir)
+	if _, err := os.Stat(parent); err != nil {
+		log.Printf("warning: mount %s not available yet: %v", parent, err)
+		return
 	}
-	return &SessionStore{dir: dir}
+	if err := os.Mkdir(s.dir, 0755); err != nil && !os.IsExist(err) {
+		log.Printf("warning: mkdir %s failed: %v", s.dir, err)
+	}
+	os.Chmod(s.dir, 0755)
 }
 
 func (s *SessionStore) Create(username, hostname string) (*Session, error) {
