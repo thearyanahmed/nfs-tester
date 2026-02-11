@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -104,6 +105,9 @@ func main() {
 	http.HandleFunc("/api/v1/logout", handleLogout)
 	http.HandleFunc("/api/v1/sessions", handleSessions)
 
+	http.HandleFunc("/api/v1/stale-test/write", handleStaleWrite)
+	http.HandleFunc("/api/v1/stale-test/read", handleStaleRead)
+
 	http.HandleFunc("/api/v1/images/upload", handleImageUpload)
 	http.HandleFunc("/api/v1/images/delete/", handleImageDelete)
 	http.HandleFunc("/api/v1/images/", handleImageRouter)
@@ -171,6 +175,15 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
   </div>
 
   <div class="card">
+    <h2>Stale Read/Write Test</h2>
+    <p>Writes a value from one pod, then reads from random pods to detect NFS caching issues.</p>
+    <label>Rounds: <input id="staleRounds" type="number" value="50" style="width:60px"></label>
+    <label>Reads per round: <input id="staleReads" type="number" value="5" style="width:60px"></label>
+    <button onclick="runStaleTest()">Run Stale Test</button>
+    <div id="staleResult" style="white-space:pre-wrap; margin-top:12px; padding:12px; background:#f1f3f5; border:1px solid #dee2e6; border-radius:4px; max-height:50lh; overflow-y:auto; min-height:40px;">click run...</div>
+  </div>
+
+  <div class="card">
     <h2>NFS Test Endpoints</h2>
     <table>
       <tr><td>GET</td><td><a href="/health">/health</a></td><td>Health check</td></tr>
@@ -178,6 +191,8 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
       <tr><td>GET</td><td><a href="/api/v1/matrix">/api/v1/matrix</a></td><td>Run NFS test matrix</td></tr>
       <tr><td>GET</td><td><a href="/api/v1/test-suite">/api/v1/test-suite</a></td><td>Full NFS test suite</td></tr>
       <tr><td>GET</td><td>/api/v1/exec?cmd=&lt;cmd&gt;</td><td>Execute shell command</td></tr>
+      <tr><td>POST</td><td><a href="/api/v1/stale-test/write">/api/v1/stale-test/write</a></td><td>Write timestamped value to NFS</td></tr>
+      <tr><td>GET</td><td><a href="/api/v1/stale-test/read">/api/v1/stale-test/read</a></td><td>Read value from NFS</td></tr>
     </table>
   </div>
 
@@ -287,6 +302,72 @@ async function doDeleteImage(name) {
 }
 
 doGallery();
+
+const staleOut = document.getElementById('staleResult');
+
+async function runStaleTest() {
+  const rounds = parseInt(document.getElementById('staleRounds').value) || 50;
+  const readsPerRound = parseInt(document.getElementById('staleReads').value) || 5;
+  staleOut.textContent = 'running ' + rounds + ' rounds, ' + readsPerRound + ' reads each...\n\n';
+
+  let totalReads = 0, staleReads = 0, errors = 0;
+  const writerPods = {}, readerPods = {};
+
+  for (let i = 0; i < rounds; i++) {
+    const writeResp = await fetch('/api/v1/stale-test/write', {method: 'POST'});
+    if (!writeResp.ok) {
+      staleOut.textContent += 'round ' + (i+1) + ': WRITE FAILED\n';
+      errors++;
+      continue;
+    }
+    const written = await writeResp.json();
+    const expectedValue = written.value;
+    const writer = written.served_by;
+    writerPods[writer] = (writerPods[writer] || 0) + 1;
+
+    for (let j = 0; j < readsPerRound; j++) {
+      totalReads++;
+      const readResp = await fetch('/api/v1/stale-test/read');
+      if (!readResp.ok) {
+        staleOut.textContent += 'round ' + (i+1) + ' read ' + (j+1) + ': READ FAILED\n';
+        errors++;
+        continue;
+      }
+      const readData = await readResp.json();
+      const reader = readData.read_by;
+      readerPods[reader] = (readerPods[reader] || 0) + 1;
+
+      if (readData.value !== expectedValue) {
+        staleReads++;
+        staleOut.textContent += 'STALE round=' + (i+1) + ' read=' + (j+1)
+          + ' writer=' + writer + ' reader=' + reader
+          + ' expected=' + expectedValue + ' got=' + readData.value
+          + ' (written_by=' + readData.written_by + ')\n';
+      }
+    }
+
+    if ((i+1) %% 10 === 0) {
+      staleOut.textContent += '... completed ' + (i+1) + '/' + rounds + ' rounds\n';
+    }
+  }
+
+  staleOut.textContent += '\n--- summary ---\n';
+  staleOut.textContent += 'rounds: ' + rounds + '\n';
+  staleOut.textContent += 'total reads: ' + totalReads + '\n';
+  staleOut.textContent += 'stale reads: ' + staleReads + '\n';
+  staleOut.textContent += 'errors: ' + errors + '\n';
+  staleOut.textContent += 'stale rate: ' + (totalReads > 0 ? ((staleReads/totalReads)*100).toFixed(2) : 0) + '%%\n';
+  staleOut.textContent += '\nwriter pods:\n';
+  for (const [k,v] of Object.entries(writerPods)) staleOut.textContent += '  ' + k + ': ' + v + ' writes\n';
+  staleOut.textContent += 'reader pods:\n';
+  for (const [k,v] of Object.entries(readerPods)) staleOut.textContent += '  ' + k + ': ' + v + ' reads\n';
+
+  if (staleReads === 0) {
+    staleOut.textContent += '\nNO STALE READS - NFS cache coherency looks good\n';
+  } else {
+    staleOut.textContent += '\nSTALE READS DETECTED - ' + staleReads + ' out of ' + totalReads + '\n';
+  }
+}
 </script>
 </body>
 </html>`, hostname)
@@ -561,6 +642,44 @@ func handleSessions(w http.ResponseWriter, r *http.Request) {
 		"count":     len(list),
 		"served_by": hostname,
 	})
+}
+
+func handleStaleWrite(w http.ResponseWriter, r *http.Request) {
+	ts := time.Now().UnixNano()
+	payload := map[string]interface{}{
+		"value":      ts,
+		"written_by": hostname,
+		"written_at": time.Now().UTC().Format(time.RFC3339Nano),
+	}
+
+	data, _ := json.Marshal(payload)
+	path := filepath.Join(nfsPath, "stale-test.json")
+
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, map[string]string{"error": err.Error()})
+		return
+	}
+
+	payload["served_by"] = hostname
+	writeJSON(w, payload)
+}
+
+func handleStaleRead(w http.ResponseWriter, r *http.Request) {
+	path := filepath.Join(nfsPath, "stale-test.json")
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		writeJSON(w, map[string]string{"error": err.Error(), "served_by": hostname})
+		return
+	}
+
+	var payload map[string]interface{}
+	json.Unmarshal(data, &payload)
+	payload["read_by"] = hostname
+	payload["read_at"] = time.Now().UTC().Format(time.RFC3339Nano)
+	writeJSON(w, payload)
 }
 
 func writeJSON(w http.ResponseWriter, v interface{}) {

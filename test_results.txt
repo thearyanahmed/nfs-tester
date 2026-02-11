@@ -1,0 +1,81 @@
+requesting https://nfs-tester-oootg.onstagingocean.app/api/v1/test-suite ...
+
+[1m=== NFS Test Suite ===[0m
+user: apps  uid: 1000  gid: 1000
+mount: /mnt/nfs
+run:   1770827446098390909
+time:  2026-02-11T16:30:48Z
+
+[1m--- ISOLATED [28/28] duration=1.104709591s ---[0m
+
+  #  | Test              | Pass | Duration     | Context                                       | Before                                             | After                                         
+-----+-------------------+------+--------------+-----------------------------------------------+----------------------------------------------------+-----------------------------------------------
+  1 | create_file       | PASS | 12.454137ms  | os.WriteFile test.txt on NFS                  | test.txt exists=false                              | test.txt size=9 mode=-rw-r--r--               
+  2 | read_file         | PASS | 1.403693ms   | os.ReadFile + content verify                  | test.txt size=9                                    | read 9 bytes, match=true                      
+  3 | stat_file         | PASS | 32.7µs       | os.Stat metadata check                        |                                                    |                                               
+  4 | append_file       | PASS | 5.642292ms   | O_APPEND write                                | size=9 content="hello nfs"                         | size=23 content="hello nfs\nappended line"    
+  5 | overwrite_file    | PASS | 7.00212ms    | os.WriteFile overwrite + verify               | content="hello nfs\nappended line"                 | content="overwritten content"                 
+  6 | chmod_file        | PASS | 1.093077ms   | os.Chmod permission change                    | mode=-rw-r--r--                                    | mode=-rwxr-xr-x                               
+  7 | rename_file       | PASS | 6.552532ms   | os.Rename within same dir                     | test.txt exists=true, renamed.txt exists=false     | test.txt exists=false, renamed.txt exists=true
+  8 | copy_file         | PASS | 9.621316ms   | read src + write dst copy                     | test-copy.txt exists=false                         | test-copy.txt exists=true size=19             
+  9 | symlink           | PASS | 3.712016ms   | os.Symlink + os.Readlink                      | test-link.txt exists=false                         | test-link.txt -> test.txt                     
+ 10 | mkdir             | PASS | 4.476377ms   | os.Mkdir single dir                           | subdir/ exists=false                               | subdir/ exists=true mode=drwxr-xr-x           
+ 11 | nested_mkdir      | PASS | 12.95921ms   | os.MkdirAll 3-level deep                      | deep/ exists=false                                 | deep/nested/dir/ exists=true                  
+ 12 | create_in_subdir  | PASS | 8.519056ms   | write file inside subdir                      | subdir/subfile.txt exists=false                    | subdir/subfile.txt size=14                    
+ 13 | cross_dir_rename  | PASS | 3.974164ms   | os.Rename across directories                  | subdir/subfile.txt -> (exists)                     | deep/moved.txt -> (exists)                    
+ 14 | delete_file       | PASS | 9.001764ms   | os.Remove file deletion                       | exist: test-copy.txt, test-link.txt                | exist: (none)                                 
+ 15 | rmdir             | PASS | 27.128913ms  | os.RemoveAll recursive                        | dirs: deep/, subdir/                               | dirs: (none)                                  
+ 16 | large_file_1mb    | PASS | 44.436427ms  | 1MB write + read-back throughput              | large.bin exists=false                             | large.bin size=1048576 verified=true          
+ 17 | concurrent_writes | PASS | 57.018807ms  | 5 goroutines writing simultaneously           |                                                    |                                               
+ 18 | file_lock         | PASS | 16.535295ms  | WriteAt with held fd                          | content="lock test"                                | content="lockedest"                           
+ 19 | truncate_file     | PASS | 17.308385ms  | os.Truncate shrink file                       | size=36 content="this is a long string for truncat | size=10 content="this is a "                  
+ 20 | hardlink          | PASS | 10.848593ms  | os.Link hard link                             | test-hardlink.txt exists=false                     | test-hardlink.txt content matches (19 bytes)  
+ 21 | mkfifo            | PASS | 3.814762ms   | syscall.Mkfifo named pipe                     | test.fifo exists=false                             | test.fifo mode=prw-r--r--                     
+ 22 | write_binary      | PASS | 11.173961ms  | write all 256 byte values, read back, compare | binary.bin exists=false                            | binary.bin size=256 match=true                
+ 23 | mtime_check       | PASS | 117.175178ms | verify mtime advances after write             | 2026-02-11T16:30:46.388827964Z                     | 2026-02-11T16:30:46.495376001Z                
+ 24 | readdir_many      | PASS | 645.237706ms | create 50 files + os.ReadDir                  | readdir-test/ files=50                             | readdir returned 50 entries                   
+ 25 | sparse_write      | PASS | 12.726382ms  | seek to 1MB offset, write 16 bytes            | sparse.bin exists=false                            | sparse.bin logical_size=1048592               
+ 26 | temp_file         | PASS | 13.341823ms  | os.CreateTemp on NFS (not /tmp)               | target dir=/mnt/nfs/test-isolated-1770827446098390 | created nfs-test-3369466892.tmp (17 bytes)    
+ 27 | exclusive_create  | PASS | 10.837373ms  | O_CREATE|O_EXCL atomic create                 | exclusive.txt exists=false                         | exclusive.txt exists=true, 2nd O_EXCL rejected
+ 28 | seek_read_write   | PASS | 16.321138ms  | seek to offset 5, overwrite, verify           | content="AAAAAAAAAA"                               | content="AAAAABBBBB"                          
+
+[1m--- SHARED [31/31] duration=1.121818351s ---[0m
+
+  #  | Test              | Pass | Duration     | Context                                       | Before                                             | After                                             
+-----+-------------------+------+--------------+-----------------------------------------------+----------------------------------------------------+---------------------------------------------------
+  1 | create_file       | PASS | 12.430321ms  | os.WriteFile test.txt on NFS                  | test.txt exists=false                              | test.txt size=9 mode=-rw-r--r--                   
+  2 | read_file         | PASS | 1.485376ms   | os.ReadFile + content verify                  | test.txt size=9                                    | read 9 bytes, match=true                          
+  3 | stat_file         | PASS | 57.679µs     | os.Stat metadata check                        |                                                    |                                                   
+  4 | append_file       | PASS | 7.301721ms   | O_APPEND write                                | size=9 content="hello nfs"                         | size=23 content="hello nfs\nappended line"        
+  5 | overwrite_file    | PASS | 8.45979ms    | os.WriteFile overwrite + verify               | content="hello nfs\nappended line"                 | content="overwritten content"                     
+  6 | chmod_file        | PASS | 1.151879ms   | os.Chmod permission change                    | mode=-rw-r--r--                                    | mode=-rwxr-xr-x                                   
+  7 | rename_file       | PASS | 6.276568ms   | os.Rename within same dir                     | test.txt exists=true, renamed.txt exists=false     | test.txt exists=false, renamed.txt exists=true    
+  8 | copy_file         | PASS | 10.595499ms  | read src + write dst copy                     | test-copy.txt exists=false                         | test-copy.txt exists=true size=19                 
+  9 | symlink           | PASS | 3.693551ms   | os.Symlink + os.Readlink                      | test-link.txt exists=false                         | test-link.txt -> test.txt                         
+ 10 | mkdir             | PASS | 4.292952ms   | os.Mkdir single dir                           | subdir/ exists=false                               | subdir/ exists=true mode=drwxr-xr-x               
+ 11 | nested_mkdir      | PASS | 14.167884ms  | os.MkdirAll 3-level deep                      | deep/ exists=false                                 | deep/nested/dir/ exists=true                      
+ 12 | create_in_subdir  | PASS | 8.486593ms   | write file inside subdir                      | subdir/subfile.txt exists=false                    | subdir/subfile.txt size=14                        
+ 13 | cross_dir_rename  | PASS | 4.204517ms   | os.Rename across directories                  | subdir/subfile.txt -> (exists)                     | deep/moved.txt -> (exists)                        
+ 14 | delete_file       | PASS | 8.777919ms   | os.Remove file deletion                       | exist: test-copy.txt, test-link.txt                | exist: (none)                                     
+ 15 | rmdir             | PASS | 25.087601ms  | os.RemoveAll recursive                        | dirs: deep/, subdir/                               | dirs: (none)                                      
+ 16 | large_file_1mb    | PASS | 19.644818ms  | 1MB write + read-back throughput              | large.bin exists=false                             | large.bin size=1048576 verified=true              
+ 17 | concurrent_writes | PASS | 60.367396ms  | 5 goroutines writing simultaneously           |                                                    |                                                   
+ 18 | file_lock         | PASS | 16.264767ms  | WriteAt with held fd                          | content="lock test"                                | content="lockedest"                               
+ 19 | truncate_file     | PASS | 18.460988ms  | os.Truncate shrink file                       | size=36 content="this is a long string for truncat | size=10 content="this is a "                      
+ 20 | hardlink          | PASS | 12.245574ms  | os.Link hard link                             | test-hardlink.txt exists=false                     | test-hardlink.txt content matches (19 bytes)      
+ 21 | mkfifo            | PASS | 4.233701ms   | syscall.Mkfifo named pipe                     | test.fifo exists=false                             | test.fifo mode=prw-r--r--                         
+ 22 | write_binary      | PASS | 11.631254ms  | write all 256 byte values, read back, compare | binary.bin exists=false                            | binary.bin size=256 match=true                    
+ 23 | mtime_check       | PASS | 117.319665ms | verify mtime advances after write             | 2026-02-11T16:30:47.481063361Z                     | 2026-02-11T16:30:47.58753742Z                     
+ 24 | readdir_many      | PASS | 659.838587ms | create 50 files + os.ReadDir                  | readdir-test/ files=50                             | readdir returned 50 entries                       
+ 25 | sparse_write      | PASS | 13.251265ms  | seek to 1MB offset, write 16 bytes            | sparse.bin exists=false                            | sparse.bin logical_size=1048592                   
+ 26 | temp_file         | PASS | 14.873113ms  | os.CreateTemp on NFS (not /tmp)               | target dir=/mnt/nfs/shared/run-1770827446098390909 | created nfs-test-1136985552.tmp (17 bytes)        
+ 27 | exclusive_create  | PASS | 11.59399ms   | O_CREATE|O_EXCL atomic create                 | exclusive.txt exists=false                         | exclusive.txt exists=true, 2nd O_EXCL rejected    
+ 28 | seek_read_write   | PASS | 17.242979ms  | seek to offset 5, overwrite, verify           | content="AAAAAAAAAA"                               | content="AAAAABBBBB"                              
+ 29 | write_marker      | PASS | 6.947978ms   | write marker file for cross-run visibility    | marker-1770827446098390909.txt exists=false        | marker-1770827446098390909.txt exists=true (58 byt
+ 30 | list_existing     | PASS | 2.398548ms   | list shared dir entries (all runs)            |                                                    |                                                   
+ 31 | read_cross_run    | PASS | 2.541538ms   | read markers from previous test runs          |                                                    |                                                   
+
+shared dir before: marker-1770826112315379335.txt, marker-1770826652295379816.txt, marker-1770826867242815996.txt, marker-1770827385785322398.txt, marker-1770827419763460831.txt
+shared dir after:  marker-1770826112315379335.txt, marker-1770826652295379816.txt, marker-1770826867242815996.txt, marker-1770827385785322398.txt, marker-1770827419763460831.txt, marker-1770827446098390909.txt
+
+[32m=== OVERALL: 59/59 PASS ===[0m
