@@ -132,7 +132,7 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
     button { padding: 8px 16px; margin: 4px; background: #0056b3; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
     button:hover { background: #004094; }
     button.danger { background: #dc3545; color: white; }
-    #result { white-space: pre-wrap; margin-top: 12px; padding: 12px; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; min-height: 40px; }
+    #result { white-space: pre-wrap; margin-top: 12px; padding: 12px; background: #f1f3f5; border: 1px solid #dee2e6; border-radius: 4px; min-height: 40px; max-height: 50lh; overflow-y: auto; }
     .served-by { color: #0056b3; font-weight: bold; }
     table { width: 100%%; border-collapse: collapse; }
     td, th { padding: 6px 12px; text-align: left; border-bottom: 1px solid #dee2e6; }
@@ -145,9 +145,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 
   <div class="card">
     <h2>Login</h2>
-    <p>Hardcoded users: alice/password123, bob/password456</p>
+    <p>Users: alice, bob, zach, soulan, anish, bikram (password: secret12)</p>
     <input id="username" placeholder="username" value="alice">
-    <input id="password" type="password" placeholder="password" value="password123">
+    <input id="password" type="password" placeholder="password" value="secret12">
     <button onclick="doLogin()">Login</button>
   </div>
 
@@ -156,7 +156,8 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
     <button onclick="doMe()">Who am I? (GET /api/v1/me)</button>
     <button onclick="doLogout()" class="danger">Logout</button>
     <button onclick="doSessions()">List all sessions</button>
-    <button onclick="doLoop()">Loop 200x (test all instances)</button>
+    <input id="loopCount" type="number" value="100" style="width:60px;">
+    <button onclick="doLoop()">Loop (test all instances)</button>
     <div id="result">click a button...</div>
   </div>
 
@@ -171,13 +172,36 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
   </div>
 
   <div class="card">
+    <h2>Test Suite</h2>
+    <button onclick="doTestSuite()">Run Test Suite</button>
+    <span id="suiteStatus" style="margin-left:8px; color:#495057;"></span>
+    <div id="suiteResult" style="margin-top:12px; max-height:60lh; overflow-y:auto;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Shell</h2>
+    <input id="shellCmd" placeholder="ls -la /mnt/nfs" value="ls -la /mnt/nfs" style="width:60%%;">
+    <button onclick="doExec()">Run</button>
+    <div id="shellResult" style="white-space:pre-wrap; margin-top:8px; padding:12px; background:#f1f3f5; border:1px solid #dee2e6; border-radius:4px; max-height:30lh; overflow-y:auto; font-size:13px;"></div>
+  </div>
+
+  <div class="card">
     <h2>NFS Test Endpoints</h2>
     <table>
       <tr><td>GET</td><td><a href="/health">/health</a></td><td>Health check</td></tr>
       <tr><td>GET</td><td><a href="/api/v1/info">/api/v1/info</a></td><td>System and mount info</td></tr>
       <tr><td>GET</td><td><a href="/api/v1/matrix">/api/v1/matrix</a></td><td>Run NFS test matrix</td></tr>
       <tr><td>GET</td><td><a href="/api/v1/test-suite">/api/v1/test-suite</a></td><td>Full NFS test suite</td></tr>
-      <tr><td>GET</td><td>/api/v1/exec?cmd=&lt;cmd&gt;</td><td>Execute shell command</td></tr>
+      <tr><td>GET</td><td>/api/v1/exec?cmd=&lt;cmd&gt;</td><td>Execute shell command (<a href="/api/v1/exec?cmd=id">id</a> | <a href="/api/v1/exec?cmd=whoami">whoami</a>)</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Session Watcher (separate instance)</h2>
+    <table>
+      <tr><td>GET</td><td><a href="/watcher/">/watcher/</a></td><td>Live session viewer (auto-refreshes)</td></tr>
+      <tr><td>GET</td><td><a href="/watcher/health">/watcher/health</a></td><td>Health check</td></tr>
+      <tr><td>GET</td><td><a href="/watcher/api/v1/digest">/watcher/api/v1/digest</a></td><td>Session file digests (JSON)</td></tr>
     </table>
   </div>
 
@@ -212,10 +236,11 @@ async function doSessions() {
 }
 
 async function doLoop() {
-  out.textContent = 'running 200 requests...\n';
+  const n = parseInt(document.getElementById('loopCount').value) || 100;
+  out.textContent = 'running ' + n + ' requests...\n';
   const instances = {};
   let failures = 0;
-  for (let i = 0; i < 200; i++) {
+  for (let i = 0; i < n; i++) {
     const resp = await fetch('/api/v1/me');
     if (resp.ok) {
       const data = await resp.json();
@@ -228,7 +253,7 @@ async function doLoop() {
   }
   const keys = Object.keys(instances);
   out.textContent += '\n--- summary ---\n';
-  out.textContent += 'total: 200, ok: ' + (200-failures) + ', fail: ' + failures + '\n';
+  out.textContent += 'total: ' + n + ', ok: ' + (n-failures) + ', fail: ' + failures + '\n';
   out.textContent += 'instances hit: ' + keys.length + '\n';
   for (const [k,v] of Object.entries(instances)) {
     out.textContent += '  ' + k + ': ' + v + ' requests\n';
@@ -287,6 +312,57 @@ async function doDeleteImage(name) {
 }
 
 doGallery();
+
+async function doTestSuite() {
+  const status = document.getElementById('suiteStatus');
+  const container = document.getElementById('suiteResult');
+  status.textContent = 'running...';
+  container.innerHTML = '';
+  const resp = await fetch('/api/v1/test-suite');
+  if (!resp.ok) { status.textContent = 'HTTP ' + resp.status; return; }
+  const data = await resp.json();
+
+  function renderTable(suite, label) {
+    const pass = suite.summary.pass;
+    const total = suite.summary.total;
+    const fail = suite.summary.fail;
+    const color = fail === 0 ? '#28a745' : '#dc3545';
+    let html = '<h3 style="margin:12px 0 6px;">' + label + ' <span style="color:' + color + ';">' + pass + '/' + total + '</span> (' + suite.duration + ')</h3>';
+    html += '<table style="font-size:13px; background:#fff; border:1px solid #dee2e6;">';
+    html += '<tr><th>#</th><th>Test</th><th>Result</th><th>Duration</th><th>Context</th></tr>';
+    suite.tests.forEach((t, i) => {
+      const c = t.pass ? '#28a745' : '#dc3545';
+      const s = t.pass ? 'PASS' : 'FAIL';
+      html += '<tr><td>' + (i+1) + '</td><td>' + t.name + '</td><td style="color:' + c + '; font-weight:bold;">' + s + '</td><td>' + t.duration + '</td><td style="font-size:11px; max-width:250px; overflow:hidden; text-overflow:ellipsis;">' + (t.context || '') + '</td></tr>';
+    });
+    html += '</table>';
+    return html;
+  }
+
+  let html = '<div style="font-size:13px; color:#495057; margin-bottom:8px;">user: ' + data.user + ' (uid=' + data.uid + ', gid=' + data.gid + ') | mount: ' + data.mount_path + '</div>';
+  html += renderTable(data.isolated, 'Isolated');
+  html += renderTable(data.shared, 'Shared');
+  const oc = data.overall_summary.fail === 0 ? '#28a745' : '#dc3545';
+  html += '<p style="font-weight:bold; color:' + oc + '; margin-top:12px;">Overall: ' + data.overall_summary.pass + '/' + data.overall_summary.total + (data.overall_summary.fail > 0 ? ' (' + data.overall_summary.fail + ' failed)' : ' PASS') + '</p>';
+  container.innerHTML = html;
+  status.textContent = '';
+}
+
+const shellOut = document.getElementById('shellResult');
+const shellInput = document.getElementById('shellCmd');
+shellInput.addEventListener('keydown', e => { if (e.key === 'Enter') doExec(); });
+
+async function doExec() {
+  const cmd = shellInput.value;
+  if (!cmd) return;
+  shellOut.textContent = '$ ' + cmd + '\n...\n';
+  const resp = await fetch('/api/v1/exec?cmd=' + encodeURIComponent(cmd));
+  const data = await resp.json();
+  shellOut.textContent = '$ ' + cmd + '\n';
+  if (data.stdout) shellOut.textContent += data.stdout;
+  if (data.stderr) shellOut.textContent += data.stderr;
+  if (!data.success) shellOut.textContent += '\nexit code: ' + data.exit_code;
+}
 </script>
 </body>
 </html>`, hostname)

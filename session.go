@@ -20,8 +20,12 @@ type Session struct {
 
 // hardcoded users for the demo
 var validUsers = map[string]string{
-	"alice": "password123",
-	"bob":   "password456",
+	"alice":  "secret12",
+	"bob":    "secret12",
+	"zach":   "secret12",
+	"soulan": "secret12",
+	"anish":  "secret12",
+	"bikram": "secret12",
 }
 
 type SessionStore struct {
