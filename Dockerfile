@@ -13,6 +13,9 @@ RUN apk add --no-cache ca-certificates && \
 
 COPY --from=builder /app/nfs-tester /usr/local/bin/nfs-tester
 
+RUN mkdir -p /data/sessions /data/images && \
+    chown -R 1000:1000 /data
+
 USER 1000:1000
 
 ENV NFS_PATH=/mnt/nfs
