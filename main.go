@@ -197,11 +197,13 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
   </div>
 
   <div class="card">
-    <h2>Session Watcher (separate instance)</h2>
+    <h2>Session Watchers</h2>
+    <p>Same code, different UIDs — tests cross-UID read access on NFS.</p>
     <table>
-      <tr><td>GET</td><td><a href="/watcher/">/watcher/</a></td><td>Live session viewer (auto-refreshes)</td></tr>
-      <tr><td>GET</td><td><a href="/watcher/health">/watcher/health</a></td><td>Health check</td></tr>
-      <tr><td>GET</td><td><a href="/watcher/api/v1/digest">/watcher/api/v1/digest</a></td><td>Session file digests (JSON)</td></tr>
+      <tr><th>Route</th><th>UID:GID</th><th>Links</th></tr>
+      <tr><td><a href="/watcher/">/watcher/</a></td><td>1000:1000</td><td><a href="/watcher/api/v1/digest">digest</a></td></tr>
+      <tr><td><a href="/watcher-root/">/watcher-root/</a></td><td>0:0 (root)</td><td><a href="/watcher-root/api/v1/digest">digest</a></td></tr>
+      <tr><td><a href="/watcher-other/">/watcher-other/</a></td><td>2000:2000</td><td><a href="/watcher-other/api/v1/digest">digest</a></td></tr>
     </table>
   </div>
 

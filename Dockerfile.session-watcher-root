@@ -1,0 +1,21 @@
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /app
+COPY session-watcher/go.mod .
+COPY session-watcher/main.go .
+RUN go build -o session-watcher .
+
+FROM alpine:3.19
+
+RUN apk add --no-cache ca-certificates
+
+COPY --from=builder /app/session-watcher /usr/local/bin/session-watcher
+
+USER 0:0
+
+ENV SESSION_PATH=/data/sessions
+ENV LISTEN_ADDR=:8081
+
+EXPOSE 8081
+
+CMD ["session-watcher"]

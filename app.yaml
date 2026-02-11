@@ -11,6 +11,16 @@ ingress:
     match:
       path:
         prefix: /watcher
+  - component:
+      name: watcher-root
+    match:
+      path:
+        prefix: /watcher-root
+  - component:
+      name: watcher-other
+    match:
+      path:
+        prefix: /watcher-other
 services:
 - name: app
   github:
@@ -40,3 +50,33 @@ services:
   envs:
   - key: SESSION_PATH
     value: /data/sessions
+- name: watcher-root
+  github:
+    repo: thearyanahmed/nfs-tester
+    branch: master
+  dockerfile_path: Dockerfile.session-watcher-root
+  http_port: 8081
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  instance_count: 1
+  health_check:
+    http_path: /health
+  envs:
+  - key: SESSION_PATH
+    value: /data/sessions
+  - key: ROUTE_PREFIX
+    value: /watcher-root
+- name: watcher-other
+  github:
+    repo: thearyanahmed/nfs-tester
+    branch: master
+  dockerfile_path: Dockerfile.session-watcher-other
+  http_port: 8081
+  instance_size_slug: apps-s-1vcpu-0.5gb
+  instance_count: 1
+  health_check:
+    http_path: /health
+  envs:
+  - key: SESSION_PATH
+    value: /data/sessions
+  - key: ROUTE_PREFIX
+    value: /watcher-other
