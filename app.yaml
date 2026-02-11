@@ -2,16 +2,6 @@ name: nfs-tester
 ingress:
   rules:
   - component:
-      name: app
-    match:
-      path:
-        prefix: /
-  - component:
-      name: session-watcher
-    match:
-      path:
-        prefix: /watcher
-  - component:
       name: watcher-root
     match:
       path:
@@ -21,6 +11,16 @@ ingress:
     match:
       path:
         prefix: /watcher-other
+  - component:
+      name: session-watcher
+    match:
+      path:
+        prefix: /watcher
+  - component:
+      name: app
+    match:
+      path:
+        prefix: /
 services:
 - name: app
   github:
